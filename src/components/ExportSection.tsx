@@ -36,6 +36,13 @@ interface ExportSectionProps {
   templateId: string;
 }
 
+interface CustomTemplate {
+  id: string;
+  name: string;
+  file: File;
+  uploadDate: string;
+}
+
 const exportFormats = [
   {
     id: "pdf",
@@ -77,7 +84,8 @@ export const ExportSection = ({ fields, templateId }: ExportSectionProps) => {
     try {
       // Simulate generation process
       const steps = [
-        "Applying template styles...",
+        "Loading template...",
+        templateId.startsWith('custom-') ? "Processing custom template..." : "Applying template styles...",
         "Formatting content...",
         "Optimizing layout...",
         "Generating final document...",
@@ -117,10 +125,16 @@ export const ExportSection = ({ fields, templateId }: ExportSectionProps) => {
   };
 
   const generateResumeContent = (fields: ResumeFields, templateId: string, format: string) => {
+    // Check if this is a custom template
+    const isCustomTemplate = templateId.startsWith('custom-');
+    
     // In production, this would call your backend API to generate the actual resume
+    // For custom templates, you would merge the fields with the uploaded template
     // For demo purposes, we'll create a simple HTML structure
     
     if (format === "html") {
+      const templateStyle = isCustomTemplate ? 'custom-uploaded-style' : 'predefined-template-style';
+      
       return `
         <!DOCTYPE html>
         <html lang="en">
@@ -129,19 +143,46 @@ export const ExportSection = ({ fields, templateId }: ExportSectionProps) => {
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>${fields.name} - Resume</title>
           <style>
-            body { font-family: 'Inter', sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
-            .header { text-align: center; border-bottom: 3px solid #6366f1; padding-bottom: 20px; margin-bottom: 30px; }
-            .name { font-size: 2.5em; font-weight: bold; color: #6366f1; margin: 0; }
+            body { 
+              font-family: 'Inter', sans-serif; 
+              line-height: 1.6; 
+              color: #333; 
+              max-width: 800px; 
+              margin: 0 auto; 
+              padding: 20px; 
+              ${isCustomTemplate ? 'background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);' : ''}
+            }
+            .header { 
+              text-align: center; 
+              border-bottom: ${isCustomTemplate ? '3px solid #10b981' : '3px solid #6366f1'}; 
+              padding-bottom: 20px; 
+              margin-bottom: 30px; 
+            }
+            .name { 
+              font-size: 2.5em; 
+              font-weight: bold; 
+              color: ${isCustomTemplate ? '#10b981' : '#6366f1'}; 
+              margin: 0; 
+            }
             .contact { margin: 10px 0; }
             .section { margin: 30px 0; }
-            .section-title { font-size: 1.4em; font-weight: bold; color: #6366f1; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; margin-bottom: 15px; }
+            .section-title { 
+              font-size: 1.4em; 
+              font-weight: bold; 
+              color: ${isCustomTemplate ? '#10b981' : '#6366f1'}; 
+              border-bottom: 1px solid #e5e7eb; 
+              padding-bottom: 5px; 
+              margin-bottom: 15px; 
+            }
             .content { white-space: pre-line; }
+            ${isCustomTemplate ? '.custom-template { border: 2px solid #10b981; border-radius: 8px; padding: 20px; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }' : ''}
           </style>
         </head>
-        <body>
+        <body ${isCustomTemplate ? 'class="custom-template"' : ''}>
           <div class="header">
             <h1 class="name">${fields.name}</h1>
             <div class="contact">${fields.email} | ${fields.phone} | ${fields.location}</div>
+            ${isCustomTemplate ? '<p style="font-size: 0.9em; color: #6b7280; margin-top: 10px;">Generated from Custom Template</p>' : ''}
           </div>
           
           <div class="section">
@@ -175,6 +216,12 @@ export const ExportSection = ({ fields, templateId }: ExportSectionProps) => {
           <div class="section">
             <h2 class="section-title">Certifications</h2>
             <div class="content">${fields.certifications}</div>
+          </div>
+          ` : ''}
+          
+          ${isCustomTemplate ? `
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 0.8em; color: #6b7280;">
+            <p>This resume was generated using your custom template with AI-powered content placement.</p>
           </div>
           ` : ''}
         </body>
