@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Brain, FileText, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { FileParser } from "@/utils/fileParser";
 
 interface ResumeFields {
   name: string;
@@ -35,12 +36,12 @@ export const ResumeParser = ({ file, onFieldsExtracted, setIsProcessing }: Resum
   const { toast } = useToast();
 
   const processingSteps = [
-    { step: "Reading file content...", duration: 1000 },
-    { step: "Analyzing document structure...", duration: 1500 },
-    { step: "Extracting personal information...", duration: 2000 },
-    { step: "Processing work experience...", duration: 2500 },
-    { step: "Identifying skills and education...", duration: 2000 },
-    { step: "Finalizing extraction...", duration: 1000 }
+    { step: "Reading file content...", duration: 1500 },
+    { step: "Analyzing document structure...", duration: 2000 },
+    { step: "Extracting personal information...", duration: 2500 },
+    { step: "Processing work experience...", duration: 3000 },
+    { step: "Identifying skills and education...", duration: 2500 },
+    { step: "Finalizing extraction...", duration: 1500 }
   ];
 
   // Simulate AI processing with realistic steps
@@ -50,8 +51,13 @@ export const ResumeParser = ({ file, onFieldsExtracted, setIsProcessing }: Resum
       let totalProgress = 0;
       
       try {
-        // Read file content
-        const fileContent = await readFileContent(file);
+        // Read file content using the proper parser
+        setCurrentStep("Reading file content...");
+        const fileContent = await FileParser.parseFile(file);
+        
+        if (!fileContent || fileContent.trim().length < 50) {
+          throw new Error("File appears to be empty or contains insufficient text content");
+        }
         
         for (let i = 0; i < processingSteps.length; i++) {
           const step = processingSteps[i];
@@ -76,11 +82,12 @@ export const ResumeParser = ({ file, onFieldsExtracted, setIsProcessing }: Resum
         }, 1000);
 
       } catch (err) {
-        setError("Failed to process resume. Please try again.");
+        const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
+        setError(`Failed to process resume: ${errorMessage}`);
         setIsProcessing(false);
         toast({
           title: "Processing Error",
-          description: "There was an issue processing your resume. Please try uploading again.",
+          description: errorMessage,
           variant: "destructive"
         });
       }
@@ -89,45 +96,71 @@ export const ResumeParser = ({ file, onFieldsExtracted, setIsProcessing }: Resum
     processResume();
   }, [file]);
 
-  const readFileContent = async (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      
-      reader.onload = (event) => {
-        const content = event.target?.result as string;
-        resolve(content);
-      };
-      
-      reader.onerror = () => {
-        reject(new Error("Failed to read file"));
-      };
-      
-      // For simplicity, read as text. In production, you'd handle different file types
-      reader.readAsText(file);
-    });
-  };
-
   const extractResumeFields = async (content: string): Promise<ResumeFields> => {
     // In production, this would call your AI service (OpenAI, Anthropic, etc.)
-    // For demo purposes, we'll create realistic extracted data
+    // For demo purposes, we'll create realistic extracted data based on content analysis
+    
+    // Simple content analysis to make the demo more realistic
+    const hasEmail = content.toLowerCase().includes('@') || content.includes('email');
+    const hasPhone = /\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/.test(content);
+    const hasExperience = content.toLowerCase().includes('experience') || content.toLowerCase().includes('work');
+    const hasEducation = content.toLowerCase().includes('education') || content.toLowerCase().includes('university') || content.toLowerCase().includes('degree');
     
     const sampleData: ResumeFields = {
-      name: "John Smith",
-      email: "john.smith@email.com",
-      phone: "+1 (555) 123-4567",
+      name: hasEmail ? "John Smith" : "Professional Resume",
+      email: hasEmail ? "john.smith@email.com" : "your.email@example.com",
+      phone: hasPhone ? "+1 (555) 123-4567" : "+1 (XXX) XXX-XXXX",
       location: "San Francisco, CA",
-      summary: "Experienced software engineer with 5+ years of expertise in full-stack development, specializing in React, Node.js, and cloud technologies. Proven track record of delivering scalable solutions and leading cross-functional teams.",
-      experience: "Senior Software Engineer at TechCorp (2021-Present)\n• Led development of microservices architecture serving 1M+ users\n• Improved application performance by 40% through optimization\n• Mentored 3 junior developers and established code review processes\n\nSoftware Engineer at StartupXYZ (2019-2021)\n• Built responsive web applications using React and TypeScript\n• Implemented CI/CD pipelines reducing deployment time by 60%\n• Collaborated with product team to deliver 15+ feature releases",
-      education: "Bachelor of Science in Computer Science\nUniversity of California, Berkeley (2015-2019)\nGPA: 3.8/4.0\nRelevant Coursework: Data Structures, Algorithms, Software Engineering, Database Systems",
-      skills: "Programming Languages: JavaScript, TypeScript, Python, Java\nFrameworks: React, Node.js, Express, Next.js\nDatabases: PostgreSQL, MongoDB, Redis\nCloud: AWS, Docker, Kubernetes\nTools: Git, Jenkins, Jira, Figma",
-      projects: "E-Commerce Platform (2023)\n• Built full-stack e-commerce solution with React and Node.js\n• Integrated Stripe payments and inventory management\n• Deployed on AWS with 99.9% uptime\n\nTask Management App (2022)\n• Developed collaborative task management tool\n• Implemented real-time updates using WebSocket\n• Used by 500+ internal users",
-      certifications: "AWS Certified Solutions Architect - Associate (2023)\nGoogle Cloud Professional Developer (2022)\nCertified Kubernetes Administrator (2021)",
-      languages: "English (Native)\nSpanish (Conversational)\nMandarin (Basic)",
+      summary: hasExperience ? 
+        "Experienced professional with expertise in their field, demonstrating strong analytical and problem-solving skills. Proven track record of delivering results and collaborating effectively with cross-functional teams." :
+        "Motivated professional seeking to leverage skills and experience in a dynamic environment. Strong communication abilities and commitment to continuous learning and growth.",
+      experience: hasExperience ?
+        `Senior Professional (2021-Present)
+• Led key initiatives and projects with measurable impact
+• Collaborated with cross-functional teams to deliver results
+• Improved processes and efficiency through innovative solutions
+
+Professional Role (2019-2021)
+• Contributed to team objectives and organizational goals
+• Developed skills in relevant areas of expertise
+• Participated in strategic planning and execution` :
+        `Professional Experience
+• Please update with your specific work history
+• Include job titles, companies, and dates
+• Highlight key achievements and responsibilities`,
+      education: hasEducation ?
+        `Bachelor's Degree in [Field of Study]
+[University Name] (2015-2019)
+Relevant Coursework: [List relevant courses]
+GPA: [If applicable]` :
+        `Education Details
+Please add your educational background
+• Degree(s) obtained
+• Institution(s) attended
+• Graduation dates`,
+      skills: `Professional Skills:
+• Technical expertise in relevant areas
+• Strong analytical and problem-solving abilities
+• Excellent communication and interpersonal skills
+• Project management and organizational capabilities
+• Proficiency with industry-standard tools and software`,
+      projects: content.toLowerCase().includes('project') ?
+        `Key Projects:
+• [Project Name] - Brief description of project scope and impact
+• [Project Name] - Summary of contributions and technologies used
+• [Project Name] - Overview of results and lessons learned` :
+        "Please add relevant projects and portfolio items",
+      certifications: content.toLowerCase().includes('certification') || content.toLowerCase().includes('certified') ?
+        `Professional Certifications:
+• [Certification Name] - Issuing Organization (Year)
+• [Certification Name] - Issuing Organization (Year)` :
+        "Add relevant certifications and professional credentials",
+      languages: "English (Native/Fluent)\nAdd additional languages as applicable",
       references: "Available upon request"
     };
 
     // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     return sampleData;
   };

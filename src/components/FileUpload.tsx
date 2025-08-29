@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileText, File, AlertCircle, CheckCircle2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { FileParser } from "@/utils/fileParser";
 
 interface FileUploadProps {
   onFileUpload: (file: File) => void;
@@ -18,9 +19,7 @@ export const FileUpload = ({ onFileUpload }: FileUploadProps) => {
   const maxSize = 10 * 1024 * 1024; // 10MB
 
   const validateFile = (file: File): boolean => {
-    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-    
-    if (!acceptedTypes.includes(fileExtension)) {
+    if (!FileParser.validateFileType(file)) {
       toast({
         title: "Invalid file type",
         description: "Please upload a PDF, DOCX, DOC, or TXT file.",
@@ -77,8 +76,8 @@ export const FileUpload = ({ onFileUpload }: FileUploadProps) => {
   };
 
   const getFileIcon = (fileName: string) => {
-    const extension = fileName.split('.').pop()?.toLowerCase();
-    return extension === 'pdf' ? FileText : File;
+    const fileInfo = FileParser.getFileTypeInfo({ name: fileName } as File);
+    return fileInfo.type === 'PDF' ? FileText : File;
   };
 
   return (
@@ -143,12 +142,20 @@ export const FileUpload = ({ onFileUpload }: FileUploadProps) => {
             <div className="flex items-center space-x-3">
               {(() => {
                 const IconComponent = getFileIcon(selectedFile.name);
-                return <IconComponent className="h-8 w-8 text-success" />;
+                const fileInfo = FileParser.getFileTypeInfo(selectedFile);
+                return (
+                  <div className="flex items-center space-x-2">
+                    <IconComponent className="h-8 w-8 text-success" />
+                    <span className="text-xs bg-success/20 text-success px-2 py-1 rounded">
+                      {fileInfo.icon} {fileInfo.type}
+                    </span>
+                  </div>
+                );
               })()}
               <div className="flex-1">
                 <p className="font-medium text-success-foreground">{selectedFile.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {formatFileSize(selectedFile.size)}
+                  {formatFileSize(selectedFile.size)} • Ready to process
                 </p>
               </div>
             </div>
@@ -158,22 +165,28 @@ export const FileUpload = ({ onFileUpload }: FileUploadProps) => {
         {/* Supported Formats */}
         <div className="space-y-3">
           <h4 className="font-medium text-sm">Supported Formats:</h4>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-3">
             {[
-              { ext: 'PDF', desc: 'Adobe PDF files' },
-              { ext: 'DOCX', desc: 'Microsoft Word documents' },
-              { ext: 'DOC', desc: 'Legacy Word documents' },
-              { ext: 'TXT', desc: 'Plain text files' }
-            ].map(({ ext, desc }) => (
-              <Badge key={ext} variant="secondary" className="text-xs">
-                {ext}
-              </Badge>
+              { ext: 'PDF', icon: '📄', desc: 'Adobe PDF files', color: 'bg-red-50 text-red-700' },
+              { ext: 'DOCX', icon: '📝', desc: 'Microsoft Word documents', color: 'bg-blue-50 text-blue-700' },
+              { ext: 'DOC', icon: '📄', desc: 'Legacy Word documents', color: 'bg-blue-50 text-blue-700' },
+              { ext: 'TXT', icon: '📃', desc: 'Plain text files', color: 'bg-gray-50 text-gray-700' }
+            ].map(({ ext, icon, desc, color }) => (
+              <div key={ext} className={`p-2 rounded-lg border ${color} text-xs`}>
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg">{icon}</span>
+                  <div>
+                    <div className="font-medium">{ext}</div>
+                    <div className="opacity-75">{desc}</div>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
           
           <div className="flex items-start space-x-2 text-sm text-muted-foreground">
             <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-            <p>Maximum file size: 10MB. Your data is processed securely and never stored.</p>
+            <p>Maximum file size: 10MB. Files are processed securely with advanced text extraction.</p>
           </div>
         </div>
 
