@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Palette, Star, Crown, Briefcase, GraduationCap, Upload, FileText, Plus } from "lucide-react";
+import { CheckCircle2, Palette, Star, Crown, Briefcase, GraduationCap, Upload, FileText, Plus, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface TemplateSelectorProps {
@@ -116,16 +116,42 @@ export const TemplateSelector = ({ onTemplateSelected }: TemplateSelectorProps) 
     return true;
   };
 
-  const handleTemplateUpload = (file: File) => {
+  const handleTemplateUpload = async (file: File) => {
     if (validateTemplateFile(file)) {
+      // Convert file to array buffer for storage
+      const arrayBuffer = await file.arrayBuffer();
+      const fileData = Array.from(new Uint8Array(arrayBuffer));
+      
       const customTemplate: CustomTemplate = {
         id: `custom-${Date.now()}`,
         name: file.name.replace(/\.(docx|doc)$/i, ''),
-        file: file,
+        file: file, // Keep original for immediate use
         uploadDate: new Date().toLocaleDateString()
       };
       
-      setCustomTemplates(prev => [...prev, customTemplate]);
+      // Store with file data for later reconstruction
+      const templateForStorage = {
+        ...customTemplate,
+        fileData: fileData,
+        fileType: file.type,
+        fileName: file.name
+      };
+      
+      setCustomTemplates(prev => {
+        const updatedTemplates = [...prev, customTemplate];
+        // Store in localStorage with file data
+        const templatesForStorage = updatedTemplates.map(t => ({
+          id: t.id,
+          name: t.name,
+          uploadDate: t.uploadDate,
+          fileData: templateForStorage.id === t.id ? fileData : (JSON.parse(localStorage.getItem('customTemplates') || '[]').find((stored: any) => stored.id === t.id)?.fileData),
+          fileType: templateForStorage.id === t.id ? file.type : (JSON.parse(localStorage.getItem('customTemplates') || '[]').find((stored: any) => stored.id === t.id)?.fileType),
+          fileName: templateForStorage.id === t.id ? file.name : (JSON.parse(localStorage.getItem('customTemplates') || '[]').find((stored: any) => stored.id === t.id)?.fileName)
+        }));
+        localStorage.setItem('customTemplates', JSON.stringify(templatesForStorage));
+        return updatedTemplates;
+      });
+      
       setSelectedTemplate(customTemplate.id);
       
       toast({
@@ -232,9 +258,29 @@ export const TemplateSelector = ({ onTemplateSelected }: TemplateSelectorProps) 
               </div>
             </div>
 
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p>💡 <strong>Tip:</strong> Use placeholders like {`{name}`}, {`{email}`}, {`{experience}`} in your template</p>
-              <p>🔒 Maximum file size: 5MB</p>
+            {/* Placeholder Guide */}
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 text-left max-w-2xl mx-auto">
+              <h4 className="font-semibold text-primary mb-2 flex items-center">
+                <Info className="h-4 w-4 mr-2" />
+                Template Placeholders Guide
+              </h4>
+              <p className="text-xs text-muted-foreground mb-3">
+                Include these placeholders in your template - they'll be replaced with your actual data:
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                <div><span className="font-mono bg-muted px-1 rounded text-xs">{`{name}`}</span> - Full name</div>
+                <div><span className="font-mono bg-muted px-1 rounded text-xs">{`{email}`}</span> - Email address</div>
+                <div><span className="font-mono bg-muted px-1 rounded text-xs">{`{phone}`}</span> - Phone number</div>
+                <div><span className="font-mono bg-muted px-1 rounded text-xs">{`{location}`}</span> - Location</div>
+                <div><span className="font-mono bg-muted px-1 rounded text-xs">{`{summary}`}</span> - Professional summary</div>
+                <div><span className="font-mono bg-muted px-1 rounded text-xs">{`{experience}`}</span> - Work experience</div>
+                <div><span className="font-mono bg-muted px-1 rounded text-xs">{`{education}`}</span> - Education</div>
+                <div><span className="font-mono bg-muted px-1 rounded text-xs">{`{skills}`}</span> - Skills</div>
+              </div>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>💡 You can also use [NAME], {`{{name}}`}, or {`{PHONE}`} - case doesn't matter</p>
+                <p>🔒 Maximum file size: 5MB | Supported: DOCX, DOC files</p>
+              </div>
             </div>
           </div>
         </CardContent>

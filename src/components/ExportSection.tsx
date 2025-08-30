@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { 
   Download, 
   FileText, 
-  File, 
+  File as FileIcon, 
   CheckCircle2, 
   Loader2, 
   Eye, 
@@ -15,21 +15,7 @@ import {
   Printer
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface ResumeFields {
-  name: string;
-  email: string;
-  phone: string;
-  location: string;
-  summary: string;
-  experience: string;
-  education: string;
-  skills: string;
-  projects: string;
-  certifications: string;
-  languages: string;
-  references: string;
-}
+import { TemplateProcessor, ResumeFields } from "@/utils/templateProcessor";
 
 interface ExportSectionProps {
   fields: ResumeFields;
@@ -56,7 +42,7 @@ const exportFormats = [
     id: "docx",
     name: "Word Document",
     description: "Editable Word document for further customization",
-    icon: File,
+    icon: FileIcon,
     badge: "Editable",
     color: "from-blue-500 to-blue-600"
   },
@@ -82,10 +68,14 @@ export const ExportSection = ({ fields, templateId }: ExportSectionProps) => {
     setGenerationProgress(0);
 
     try {
-      // Simulate generation process
+      const isCustomTemplate = templateId.startsWith('custom-');
+      
+      // Simulate generation process with appropriate steps
       const steps = [
         "Loading template...",
-        templateId.startsWith('custom-') ? "Processing custom template..." : "Applying template styles...",
+        isCustomTemplate ? "Processing custom template..." : "Applying template styles...",
+        "Extracting template structure...",
+        "Replacing placeholders with your data...",
         "Formatting content...",
         "Optimizing layout...",
         "Generating final document...",
@@ -93,12 +83,12 @@ export const ExportSection = ({ fields, templateId }: ExportSectionProps) => {
       ];
 
       for (let i = 0; i < steps.length; i++) {
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise(resolve => setTimeout(resolve, 600));
         setGenerationProgress(((i + 1) / steps.length) * 100);
       }
 
-      // In a real app, this would call your backend to generate the actual resume
-      const resumeContent = generateResumeContent(fields, templateId, format);
+      // Generate the actual resume content
+      const resumeContent = await generateResumeContent(fields, templateId, format);
       
       if (format === "pdf" || format === "docx") {
         downloadFile(resumeContent, format);
@@ -111,30 +101,53 @@ export const ExportSection = ({ fields, templateId }: ExportSectionProps) => {
 
       toast({
         title: "Resume generated successfully!",
-        description: `Your ${format.toUpperCase()} resume is ready for download.`
+        description: `Your ${format.toUpperCase()} resume has been processed with ${isCustomTemplate ? 'your custom template' : 'the selected template'}.`
       });
 
     } catch (error) {
       setIsGenerating(false);
       toast({
         title: "Generation failed",
-        description: "There was an error generating your resume. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error generating your resume. Please try again.",
         variant: "destructive"
       });
     }
   };
 
-  const generateResumeContent = (fields: ResumeFields, templateId: string, format: string) => {
-    // Check if this is a custom template
+  const generateResumeContent = async (fields: ResumeFields, templateId: string, format: string): Promise<string> => {
     const isCustomTemplate = templateId.startsWith('custom-');
     
-    // In production, this would call your backend API to generate the actual resume
-    // For custom templates, you would merge the fields with the uploaded template
-    // For demo purposes, we'll create a simple HTML structure
-    
-    if (format === "html") {
-      const templateStyle = isCustomTemplate ? 'custom-uploaded-style' : 'predefined-template-style';
+    if (isCustomTemplate) {
+      // Get the custom template file from localStorage or your storage solution
+      const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
+      const template = customTemplates.find((t: any) => t.id === templateId);
       
+      if (template && template.fileData) {
+        try {
+          // Reconstruct the file from stored data
+          const fileBlob = new Blob([new Uint8Array(template.fileData)], { 
+            type: template.fileType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+          });
+          
+          // Create file object from blob
+          const templateFile = new File([fileBlob], template.fileName || template.name, { 
+            type: template.fileType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+          });
+          
+          // Process the custom template
+          const processedContent = await TemplateProcessor.processCustomTemplate(templateFile, fields);
+          return processedContent;
+        } catch (error) {
+          console.error('Custom template processing failed:', error);
+          throw new Error('Failed to process your custom template. Please ensure it contains valid placeholders.');
+        }
+      } else {
+        throw new Error('Custom template not found. Please re-upload your template.');
+      }
+    }
+    
+    // Fallback for predefined templates (HTML format)
+    if (format === "html") {
       return `
         <!DOCTYPE html>
         <html lang="en">
@@ -150,18 +163,17 @@ export const ExportSection = ({ fields, templateId }: ExportSectionProps) => {
               max-width: 800px; 
               margin: 0 auto; 
               padding: 20px; 
-              ${isCustomTemplate ? 'background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);' : ''}
             }
             .header { 
               text-align: center; 
-              border-bottom: ${isCustomTemplate ? '3px solid #10b981' : '3px solid #6366f1'}; 
+              border-bottom: 3px solid #6366f1; 
               padding-bottom: 20px; 
               margin-bottom: 30px; 
             }
             .name { 
               font-size: 2.5em; 
               font-weight: bold; 
-              color: ${isCustomTemplate ? '#10b981' : '#6366f1'}; 
+              color: #6366f1; 
               margin: 0; 
             }
             .contact { margin: 10px 0; }
@@ -169,20 +181,18 @@ export const ExportSection = ({ fields, templateId }: ExportSectionProps) => {
             .section-title { 
               font-size: 1.4em; 
               font-weight: bold; 
-              color: ${isCustomTemplate ? '#10b981' : '#6366f1'}; 
+              color: #6366f1; 
               border-bottom: 1px solid #e5e7eb; 
               padding-bottom: 5px; 
               margin-bottom: 15px; 
             }
             .content { white-space: pre-line; }
-            ${isCustomTemplate ? '.custom-template { border: 2px solid #10b981; border-radius: 8px; padding: 20px; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }' : ''}
           </style>
         </head>
-        <body ${isCustomTemplate ? 'class="custom-template"' : ''}>
+        <body>
           <div class="header">
             <h1 class="name">${fields.name}</h1>
             <div class="contact">${fields.email} | ${fields.phone} | ${fields.location}</div>
-            ${isCustomTemplate ? '<p style="font-size: 0.9em; color: #6b7280; margin-top: 10px;">Generated from Custom Template</p>' : ''}
           </div>
           
           <div class="section">
@@ -218,18 +228,12 @@ export const ExportSection = ({ fields, templateId }: ExportSectionProps) => {
             <div class="content">${fields.certifications}</div>
           </div>
           ` : ''}
-          
-          ${isCustomTemplate ? `
-          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 0.8em; color: #6b7280;">
-            <p>This resume was generated using your custom template with AI-powered content placement.</p>
-          </div>
-          ` : ''}
         </body>
         </html>
       `;
     }
     
-    return "resume-content-blob"; // For PDF/DOCX, this would be actual file content
+    return "resume-content-blob"; // For PDF/DOCX with predefined templates
   };
 
   const downloadFile = (content: string, format: string) => {
@@ -246,12 +250,20 @@ export const ExportSection = ({ fields, templateId }: ExportSectionProps) => {
     URL.revokeObjectURL(url);
   };
 
-  const previewResume = () => {
-    const htmlContent = generateResumeContent(fields, templateId, "html");
-    const newWindow = window.open("", "_blank");
-    if (newWindow) {
-      newWindow.document.write(htmlContent);
-      newWindow.document.close();
+  const previewResume = async () => {
+    try {
+      const htmlContent = await generateResumeContent(fields, templateId, "html");
+      const newWindow = window.open("", "_blank");
+      if (newWindow) {
+        newWindow.document.write(htmlContent);
+        newWindow.document.close();
+      }
+    } catch (error) {
+      toast({
+        title: "Preview failed",
+        description: error instanceof Error ? error.message : "Failed to generate preview",
+        variant: "destructive"
+      });
     }
   };
 
