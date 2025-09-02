@@ -1,20 +1,7 @@
 import * as mammoth from 'mammoth';
 import { FileParser } from './fileParser';
+import { type ResumeFields } from './resumeExtractor';
 
-export interface ResumeFields {
-  name: string;
-  email: string;
-  phone: string;
-  location: string;
-  summary: string;
-  experience: string;
-  education: string;
-  skills: string;
-  projects: string;
-  certifications: string;
-  languages: string;
-  references: string;
-}
 
 export interface CustomTemplate {
   id: string;
@@ -95,12 +82,19 @@ export class TemplateProcessor {
     
     // Replace placeholders for each field
     Object.entries(this.FIELD_MAPPINGS).forEach(([fieldKey, placeholders]) => {
-      const fieldValue = fields[fieldKey as keyof ResumeFields] || 'Not specified';
+      const fieldValue = fields[fieldKey as keyof ResumeFields];
       
       placeholders.forEach(placeholder => {
         // Case-insensitive replacement
         const regex = new RegExp(placeholder.replace(/[{}[\]().*+?^$|\\]/g, '\\$&'), 'gi');
-        processedContent = processedContent.replace(regex, fieldValue);
+        
+        // If field has value, replace with value; if empty, replace with empty string
+        if (fieldValue && fieldValue.trim()) {
+          processedContent = processedContent.replace(regex, fieldValue);
+        } else {
+          // Remove placeholder and any surrounding whitespace/formatting
+          processedContent = processedContent.replace(new RegExp(`\\s*${placeholder.replace(/[{}[\]().*+?^$|\\]/g, '\\$&')}\\s*`, 'gi'), '');
+        }
       });
     });
 
@@ -108,7 +102,7 @@ export class TemplateProcessor {
     const currentDate = new Date().toLocaleDateString();
     processedContent = processedContent.replace(/\{\{date\}\}|\{date\}|\[DATE\]|<<DATE>>/gi, currentDate);
 
-    // Clean up any remaining unmatched placeholders
+    // Clean up any remaining unmatched placeholders and formatting
     processedContent = this.cleanUnmatchedPlaceholders(processedContent);
     
     return processedContent;
@@ -121,9 +115,16 @@ export class TemplateProcessor {
       .replace(/\{[^}]+\}/g, '') // {placeholder}
       .replace(/\[[^\]]+\]/g, '') // [PLACEHOLDER]
       .replace(/<<[^>]+>>/g, '') // <<PLACEHOLDER>>
+      // Clean up empty table rows and cells in HTML
+      .replace(/<tr[^>]*>\s*<td[^>]*>\s*<\/td>\s*<\/tr>/gi, '')
+      .replace(/<td[^>]*>\s*<\/td>/gi, '<td></td>')
+      // Clean up empty paragraphs
+      .replace(/<p[^>]*>\s*<\/p>/gi, '')
       // Clean up multiple spaces and empty lines
-      .replace(/\s{2,}/g, ' ')
-      .replace(/\n\s*\n\s*\n/g, '\n\n')
+      .replace(/\s{3,}/g, '  ')
+      .replace(/\n\s*\n\s*\n\s*/g, '\n\n')
+      // Remove lines that are just colons or labels with no content
+      .replace(/^\s*[A-Za-z\s]+:\s*$/gm, '')
       .trim();
   }
 

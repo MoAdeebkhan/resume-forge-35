@@ -6,21 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Brain, FileText, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { FileParser } from "@/utils/fileParser";
+import { ResumeExtractor, type ResumeFields } from "@/utils/resumeExtractor";
 
-interface ResumeFields {
-  name: string;
-  email: string;
-  phone: string;
-  location: string;
-  summary: string;
-  experience: string;
-  education: string;
-  skills: string;
-  projects: string;
-  certifications: string;
-  languages: string;
-  references: string;
-}
 
 interface ResumeParserProps {
   file: File;
@@ -97,72 +84,21 @@ export const ResumeParser = ({ file, onFieldsExtracted, setIsProcessing }: Resum
   }, [file]);
 
   const extractResumeFields = async (content: string): Promise<ResumeFields> => {
-    // In production, this would call your AI service (OpenAI, Anthropic, etc.)
-    // For demo purposes, we'll create realistic extracted data based on content analysis
+    // Use the ResumeExtractor to get real data from the resume content
+    console.log("Extracting fields from content:", content.substring(0, 200) + "...");
     
-    // Simple content analysis to make the demo more realistic
-    const hasEmail = content.toLowerCase().includes('@') || content.includes('email');
-    const hasPhone = /\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/.test(content);
-    const hasExperience = content.toLowerCase().includes('experience') || content.toLowerCase().includes('work');
-    const hasEducation = content.toLowerCase().includes('education') || content.toLowerCase().includes('university') || content.toLowerCase().includes('degree');
-    
-    const sampleData: ResumeFields = {
-      name: hasEmail ? "John Smith" : "Professional Resume",
-      email: hasEmail ? "john.smith@email.com" : "your.email@example.com",
-      phone: hasPhone ? "+1 (555) 123-4567" : "+1 (XXX) XXX-XXXX",
-      location: "San Francisco, CA",
-      summary: hasExperience ? 
-        "Experienced professional with expertise in their field, demonstrating strong analytical and problem-solving skills. Proven track record of delivering results and collaborating effectively with cross-functional teams." :
-        "Motivated professional seeking to leverage skills and experience in a dynamic environment. Strong communication abilities and commitment to continuous learning and growth.",
-      experience: hasExperience ?
-        `Senior Professional (2021-Present)
-• Led key initiatives and projects with measurable impact
-• Collaborated with cross-functional teams to deliver results
-• Improved processes and efficiency through innovative solutions
-
-Professional Role (2019-2021)
-• Contributed to team objectives and organizational goals
-• Developed skills in relevant areas of expertise
-• Participated in strategic planning and execution` :
-        `Professional Experience
-• Please update with your specific work history
-• Include job titles, companies, and dates
-• Highlight key achievements and responsibilities`,
-      education: hasEducation ?
-        `Bachelor's Degree in [Field of Study]
-[University Name] (2015-2019)
-Relevant Coursework: [List relevant courses]
-GPA: [If applicable]` :
-        `Education Details
-Please add your educational background
-• Degree(s) obtained
-• Institution(s) attended
-• Graduation dates`,
-      skills: `Professional Skills:
-• Technical expertise in relevant areas
-• Strong analytical and problem-solving abilities
-• Excellent communication and interpersonal skills
-• Project management and organizational capabilities
-• Proficiency with industry-standard tools and software`,
-      projects: content.toLowerCase().includes('project') ?
-        `Key Projects:
-• [Project Name] - Brief description of project scope and impact
-• [Project Name] - Summary of contributions and technologies used
-• [Project Name] - Overview of results and lessons learned` :
-        "Please add relevant projects and portfolio items",
-      certifications: content.toLowerCase().includes('certification') || content.toLowerCase().includes('certified') ?
-        `Professional Certifications:
-• [Certification Name] - Issuing Organization (Year)
-• [Certification Name] - Issuing Organization (Year)` :
-        "Add relevant certifications and professional credentials",
-      languages: "English (Native/Fluent)\nAdd additional languages as applicable",
-      references: "Available upon request"
-    };
-
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    return sampleData;
+    try {
+      const extractedFields = ResumeExtractor.extractResumeFields(content);
+      console.log("Extracted fields:", extractedFields);
+      
+      // Simulate processing delay for UX
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      return extractedFields;
+    } catch (error) {
+      console.error("Error extracting resume fields:", error);
+      throw new Error("Failed to extract resume information");
+    }
   };
 
   if (error) {

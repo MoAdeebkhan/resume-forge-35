@@ -15,7 +15,8 @@ import {
   Printer
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { TemplateProcessor, ResumeFields } from "@/utils/templateProcessor";
+import { TemplateProcessor } from "@/utils/templateProcessor";
+import { type ResumeFields } from "@/utils/resumeExtractor";
 
 interface ExportSectionProps {
   fields: ResumeFields;
@@ -154,7 +155,7 @@ export const ExportSection = ({ fields, templateId }: ExportSectionProps) => {
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>${fields.name} - Resume</title>
+          <title>${fields.name || 'Resume'} - Resume</title>
           <style>
             body { 
               font-family: 'Inter', sans-serif; 
@@ -187,45 +188,70 @@ export const ExportSection = ({ fields, templateId }: ExportSectionProps) => {
               margin-bottom: 15px; 
             }
             .content { white-space: pre-line; }
+            .empty-section { display: none; }
           </style>
         </head>
         <body>
           <div class="header">
-            <h1 class="name">${fields.name}</h1>
-            <div class="contact">${fields.email} | ${fields.phone} | ${fields.location}</div>
+            <h1 class="name">${fields.name || '[Your Name]'}</h1>
+            <div class="contact">
+              ${[fields.email, fields.phone, fields.location].filter(Boolean).join(' | ') || '[Contact Information]'}
+            </div>
           </div>
           
+          ${fields.summary ? `
           <div class="section">
             <h2 class="section-title">Professional Summary</h2>
             <div class="content">${fields.summary}</div>
           </div>
+          ` : ''}
           
+          ${fields.experience ? `
           <div class="section">
             <h2 class="section-title">Work Experience</h2>
             <div class="content">${fields.experience}</div>
           </div>
+          ` : ''}
           
+          ${fields.education ? `
           <div class="section">
             <h2 class="section-title">Education</h2>
             <div class="content">${fields.education}</div>
           </div>
+          ` : ''}
           
+          ${fields.skills ? `
           <div class="section">
             <h2 class="section-title">Skills</h2>
             <div class="content">${fields.skills}</div>
           </div>
+          ` : ''}
           
-          ${fields.projects && fields.projects !== "Not Mentioned" ? `
+          ${fields.projects && fields.projects.trim() ? `
           <div class="section">
             <h2 class="section-title">Projects</h2>
             <div class="content">${fields.projects}</div>
           </div>
           ` : ''}
           
-          ${fields.certifications && fields.certifications !== "Not Mentioned" ? `
+          ${fields.certifications && fields.certifications.trim() ? `
           <div class="section">
             <h2 class="section-title">Certifications</h2>
             <div class="content">${fields.certifications}</div>
+          </div>
+          ` : ''}
+
+          ${fields.languages && fields.languages.trim() ? `
+          <div class="section">
+            <h2 class="section-title">Languages</h2>
+            <div class="content">${fields.languages}</div>
+          </div>
+          ` : ''}
+
+          ${fields.references && fields.references.trim() ? `
+          <div class="section">
+            <h2 class="section-title">References</h2>
+            <div class="content">${fields.references}</div>
           </div>
           ` : ''}
         </body>
