@@ -248,10 +248,10 @@ export const ExportSection = ({ fields, templateId }: ExportSectionProps) => {
           </div>
           ` : ''}
 
-          ${fields.references && fields.references.trim() ? `
+          ${fields.achievements && fields.achievements.trim() ? `
           <div class="section">
-            <h2 class="section-title">References</h2>
-            <div class="content">${fields.references}</div>
+            <h2 class="section-title">Achievements</h2>
+            <div class="content">${fields.achievements}</div>
           </div>
           ` : ''}
         </body>

@@ -3,14 +3,16 @@ export interface ResumeFields {
   email: string;
   phone: string;
   location: string;
+  website: string;
+  linkedin: string;
   summary: string;
   experience: string;
   education: string;
   skills: string;
-  projects: string;
   certifications: string;
   languages: string;
-  references: string;
+  projects: string;
+  achievements: string;
 }
 
 export class ResumeExtractor {
@@ -23,6 +25,8 @@ export class ResumeExtractor {
       email: this.extractEmail(cleanContent),
       phone: this.extractPhone(cleanContent),
       location: this.extractLocation(cleanContent),
+      website: this.extractWebsite(cleanContent),
+      linkedin: this.extractLinkedIn(cleanContent),
       summary: this.extractSummary(cleanContent),
       experience: this.extractExperience(cleanContent),
       education: this.extractEducation(cleanContent),
@@ -30,7 +34,7 @@ export class ResumeExtractor {
       projects: this.extractProjects(cleanContent),
       certifications: this.extractCertifications(cleanContent),
       languages: this.extractLanguages(cleanContent),
-      references: this.extractReferences(cleanContent)
+      achievements: this.extractAchievements(cleanContent)
     };
   }
 
@@ -247,24 +251,53 @@ export class ResumeExtractor {
     return foundLanguages.length > 0 ? foundLanguages.join(', ') : "";
   }
 
-  private static extractReferences(content: string): string {
-    const refPatterns = [
-      /(?:References?):\s*([^]*?)(?=\n\s*(?:[A-Z][A-Za-z\s]+:|$))/i,
-      /(?:References?)\n\s*([^]*?)$/i
+  private static extractWebsite(content: string): string {
+    const websitePatterns = [
+      /(?:Website|Portfolio|Personal Site):\s*((?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?)/i,
+      /((?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9-]+\.(?:com|net|org|io|dev|me)(?:\/[^\s]*)?)/
     ];
     
-    for (const pattern of refPatterns) {
+    for (const pattern of websitePatterns) {
       const match = content.match(pattern);
-      if (match && match[1].trim().length > 5) {
+      if (match) return match[1];
+    }
+    return "";
+  }
+
+  private static extractLinkedIn(content: string): string {
+    const linkedinPatterns = [
+      /(?:LinkedIn|linkedin):\s*((?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]+)/i,
+      /((?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]+)/
+    ];
+    
+    for (const pattern of linkedinPatterns) {
+      const match = content.match(pattern);
+      if (match) return match[1];
+    }
+    return "";
+  }
+
+  private static extractAchievements(content: string): string {
+    const achievementPatterns = [
+      /(?:Achievements?|Awards?|Honors?|Accomplishments?):\s*([^]*?)(?=\n\s*(?:[A-Z][A-Za-z\s]+:|$))/i,
+      /(?:Achievements?|Awards?|Honors?|Accomplishments?)\n\s*([^]*?)(?=\n\s*[A-Z])/i
+    ];
+    
+    for (const pattern of achievementPatterns) {
+      const match = content.match(pattern);
+      if (match && match[1].trim().length > 10) {
         return this.formatSection(match[1].trim());
       }
     }
     
-    if (content.toLowerCase().includes('references available') || content.toLowerCase().includes('upon request')) {
-      return "Available upon request";
-    }
+    // Look for achievement keywords
+    const achievementKeywords = ['award', 'recognition', 'achievement', 'honor', 'winner', 'top performer'];
+    const lines = content.split('\n');
+    const achievementLines = lines.filter(line => 
+      achievementKeywords.some(keyword => line.toLowerCase().includes(keyword))
+    );
     
-    return "";
+    return achievementLines.length > 0 ? achievementLines.join('\n') : "";
   }
 
   private static formatSection(text: string): string {

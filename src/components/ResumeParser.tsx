@@ -13,7 +13,7 @@ import { AIResumeExtractor } from "@/utils/aiResumeExtractor";
 
 interface ResumeParserProps {
   file: File;
-  onFieldsExtracted: (fields: ResumeFields) => void;
+  onFieldsExtracted: (fields: ResumeFields, confidence?: Record<string, number>) => void;
   setIsProcessing: (processing: boolean) => void;
 }
 
@@ -108,11 +108,25 @@ export const ResumeParser = ({ file, onFieldsExtracted, setIsProcessing }: Resum
       // Extract fields
       const extractedFields = await extractResumeFields(fileContent);
       
+      // Generate confidence scores based on field completeness and AI usage
+      const confidenceScores: Record<string, number> = {
+        name: extractedFields.name ? (useAI ? 0.95 : 0.85) : 0,
+        email: extractedFields.email ? (useAI ? 0.98 : 0.9) : 0,
+        phone: extractedFields.phone ? (useAI ? 0.9 : 0.8) : 0,
+        location: extractedFields.location ? (useAI ? 0.85 : 0.75) : 0,
+        summary: extractedFields.summary ? (useAI ? 0.9 : 0.7) : 0,
+        experience: extractedFields.experience ? (useAI ? 0.95 : 0.8) : 0,
+        education: extractedFields.education ? (useAI ? 0.9 : 0.8) : 0,
+        skills: extractedFields.skills ? (useAI ? 0.95 : 0.85) : 0,
+        projects: extractedFields.projects ? (useAI ? 0.85 : 0.7) : 0,
+        achievements: extractedFields.achievements ? (useAI ? 0.8 : 0.6) : 0
+      };
+      
       setIsComplete(true);
       setCurrentStep("Processing complete!");
       
       setTimeout(() => {
-        onFieldsExtracted(extractedFields);
+        onFieldsExtracted(extractedFields, confidenceScores);
         setIsProcessing(false);
       }, 1000);
 

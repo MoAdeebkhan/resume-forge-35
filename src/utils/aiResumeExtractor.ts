@@ -19,7 +19,7 @@ export class AIResumeExtractor {
           messages: [
             {
               role: 'system',
-              content: `You are a professional resume parser. Extract information from resume text and return ONLY a valid JSON object with these exact fields: name, email, phone, location, summary, experience, education, skills, projects, certifications, languages, references. If a field is not found, return empty string "". Do not include any other text or explanations, only the JSON object.`
+              content: `You are a professional resume parser. Extract information from resume text and return ONLY a valid JSON object with these exact fields: name, email, phone, location, website, linkedin, summary, experience, education, skills, projects, certifications, languages, achievements. If a field is not found, return empty string "". Do not include any other text or explanations, only the JSON object.`
             },
             {
               role: 'user',
@@ -37,27 +37,32 @@ export class AIResumeExtractor {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API request failed: ${response.status} - ${errorText}`);
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
-      const aiResponse = data.choices?.[0]?.message?.content;
-
-      if (!aiResponse) {
-        throw new Error('No response from AI service');
+      
+      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        throw new Error('Invalid API response format');
       }
 
-      // Clean and parse the JSON response
-      const cleanedResponse = aiResponse.replace(/```json\n?|\n?```/g, '').trim();
-      const extractedData = JSON.parse(cleanedResponse);
+      const extractedText = data.choices[0].message.content.trim();
+      
+      // Parse JSON response
+      let extractedData;
+      try {
+        extractedData = JSON.parse(extractedText);
+      } catch (parseError) {
+        console.error('Failed to parse AI response as JSON:', extractedText);
+        throw new Error('AI response was not valid JSON. Using fallback extraction.');
+      }
 
-      // Validate and sanitize the response
       return this.validateExtractedFields(extractedData);
 
     } catch (error) {
-      console.error('AI extraction error:', error);
-      throw new Error(`AI extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('AI extraction failed:', error);
+      // Fallback to pattern-based extraction
+      return this.extractFallback(content);
     }
   }
 
@@ -67,6 +72,8 @@ export class AIResumeExtractor {
       email: "",
       phone: "",
       location: "",
+      website: "",
+      linkedin: "",
       summary: "",
       experience: "",
       education: "",
@@ -74,7 +81,7 @@ export class AIResumeExtractor {
       projects: "",
       certifications: "",
       languages: "",
-      references: ""
+      achievements: ""
     };
 
     // Ensure all required fields exist and are strings
@@ -89,7 +96,7 @@ export class AIResumeExtractor {
     return result;
   }
 
-  // Fallback extraction for when AI is not available
+  // Fallback extraction using improved pattern matching
   static extractFallback(content: string): ResumeFields {
     const lines = content.split('\n').map(line => line.trim()).filter(line => line.length > 0);
     
@@ -98,6 +105,8 @@ export class AIResumeExtractor {
       email: this.extractEmailFallback(content),
       phone: this.extractPhoneFallback(content),
       location: this.extractLocationFallback(content),
+      website: this.extractWebsiteFallback(content),
+      linkedin: this.extractLinkedInFallback(content),
       summary: this.extractSectionFallback(content, ['summary', 'profile', 'objective']),
       experience: this.extractSectionFallback(content, ['experience', 'work', 'employment']),
       education: this.extractSectionFallback(content, ['education', 'qualification']),
@@ -105,37 +114,39 @@ export class AIResumeExtractor {
       projects: this.extractSectionFallback(content, ['projects', 'portfolio']),
       certifications: this.extractSectionFallback(content, ['certification', 'certificate', 'award']),
       languages: this.extractSectionFallback(content, ['language']),
-      references: this.extractSectionFallback(content, ['reference'])
+      achievements: this.extractSectionFallback(content, ['achievement', 'accomplishment', 'award', 'honor'])
     };
   }
 
   private static extractNameFallback(lines: string[]): string {
-    // First few lines that look like names (2-4 words, capitalized, no common resume words)
-    for (const line of lines.slice(0, 5)) {
-      const words = line.split(/\s+/).filter(word => word.length > 0);
-      if (words.length >= 2 && words.length <= 4) {
-        const isName = words.every(word => /^[A-Z][a-z]*$/.test(word));
-        const hasCommonWords = /resume|cv|developer|engineer|manager|director/i.test(line);
-        if (isName && !hasCommonWords) {
-          return line;
-        }
+    // First few lines are most likely to contain the name
+    for (let i = 0; i < Math.min(5, lines.length); i++) {
+      const line = lines[i];
+      // Skip lines that look like headers, contact info, etc.
+      if (line.length > 50 || line.includes('@') || line.includes('resume') || 
+          line.includes('curriculum') || line.includes('cv')) {
+        continue;
+      }
+      // Look for name patterns
+      if (/^[A-Z][a-z]+ [A-Z][a-z]+/.test(line) && line.split(' ').length <= 4) {
+        return line;
       }
     }
     return "";
   }
 
   private static extractEmailFallback(content: string): string {
-    const emailMatch = content.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    const emailMatch = content.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
     return emailMatch ? emailMatch[0] : "";
   }
 
   private static extractPhoneFallback(content: string): string {
-    const phoneMatches = [
-      /(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/,
-      /(\+\d{1,3}[-.\s]?)?\d{10,}/
+    const phonePatterns = [
+      /(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/,
+      /(\+?[1-9]\d{0,3}[-.\s]?)?\(?(\d{3,4})\)?[-.\s]?(\d{3,4})[-.\s]?(\d{3,4})/
     ];
     
-    for (const pattern of phoneMatches) {
+    for (const pattern of phonePatterns) {
       const match = content.match(pattern);
       if (match) return match[0];
     }
@@ -144,8 +155,9 @@ export class AIResumeExtractor {
 
   private static extractLocationFallback(content: string): string {
     const locationPatterns = [
-      /([A-Z][a-z]+,?\s+[A-Z]{2})/,
-      /([A-Z][a-z]+,\s*[A-Z][a-z]+)/
+      /([A-Z][a-z]+,\s*[A-Z]{2})/,
+      /([A-Z][a-z]+\s*[A-Z][a-z]*,\s*[A-Z][a-z]+)/,
+      /([A-Z][a-z]+,\s*[A-Z][a-z]+,\s*[A-Z]{2,})/
     ];
     
     for (const pattern of locationPatterns) {
@@ -155,33 +167,45 @@ export class AIResumeExtractor {
     return "";
   }
 
+  private static extractWebsiteFallback(content: string): string {
+    const websiteMatch = content.match(/(https?:\/\/[^\s]+|www\.[^\s]+)/);
+    return websiteMatch ? websiteMatch[0] : "";
+  }
+
+  private static extractLinkedInFallback(content: string): string {
+    const linkedinMatch = content.match(/(https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]+/);
+    return linkedinMatch ? linkedinMatch[0] : "";
+  }
+
   private static extractSectionFallback(content: string, keywords: string[]): string {
     const lines = content.split('\n');
     
     for (const keyword of keywords) {
-      const regex = new RegExp(`\\b${keyword}[^\\n]*:?\\s*`, 'i');
-      const sectionStartIndex = lines.findIndex(line => regex.test(line));
+      const regex = new RegExp(`^\\s*${keyword}\\s*:?\\s*$`, 'i');
       
-      if (sectionStartIndex !== -1) {
-        const sectionLines = [];
-        for (let i = sectionStartIndex + 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
+      for (let i = 0; i < lines.length; i++) {
+        if (regex.test(lines[i])) {
+          const sectionContent = [];
           
-          // Stop if we hit another section header
-          if (/^[A-Z][A-Za-z\s]+:?\s*$/.test(line) && 
-              keywords.every(k => !line.toLowerCase().includes(k.toLowerCase()))) {
-            break;
+          // Collect content until next section or end
+          for (let j = i + 1; j < lines.length; j++) {
+            const nextLine = lines[j].trim();
+            
+            // Stop if we hit another section header
+            if (nextLine && /^[A-Z][A-Za-z\s]+:?\s*$/.test(nextLine) && 
+                nextLine.length < 30 && !nextLine.includes('.')) {
+              break;
+            }
+            
+            if (nextLine) {
+              sectionContent.push(nextLine);
+            }
           }
           
-          sectionLines.push(line);
-          
-          // Limit section length
-          if (sectionLines.length > 10) break;
+          if (sectionContent.length > 0) {
+            return sectionContent.join('\n').trim();
+          }
         }
-        
-        const result = sectionLines.join('\n').trim();
-        if (result.length > 10) return result;
       }
     }
     

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FileUpload } from "@/components/FileUpload";
 import { ResumeParser } from "@/components/ResumeParser";
 import { TemplateSelector } from "@/components/TemplateSelector";
-import { FieldEditor } from "@/components/FieldEditor";
+import { TemplateFormRenderer } from "@/components/templates/TemplateFormRenderer";
 import { ExportSection } from "@/components/ExportSection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,14 +14,16 @@ interface ResumeFields {
   email: string;
   phone: string;
   location: string;
+  website: string;
+  linkedin: string;
   summary: string;
   experience: string;
   education: string;
   skills: string;
-  projects: string;
   certifications: string;
   languages: string;
-  references: string;
+  projects: string;
+  achievements: string;
 }
 
 const Index = () => {
@@ -30,6 +32,7 @@ const Index = () => {
   const [extractedFields, setExtractedFields] = useState<ResumeFields | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [extractedConfidence, setExtractedConfidence] = useState<Record<string, number>>({});
 
   const steps = [
     { id: 1, title: "Upload Resume", icon: FileText, description: "Upload your current resume in any format" },
@@ -43,14 +46,21 @@ const Index = () => {
     setCurrentStep(2);
   };
 
-  const handleFieldsExtracted = (fields: ResumeFields) => {
+  const handleFieldsExtracted = (fields: ResumeFields, confidence?: Record<string, number>) => {
     setExtractedFields(fields);
+    if (confidence) {
+      setExtractedConfidence(confidence);
+    }
     setCurrentStep(3);
   };
 
   const handleTemplateSelected = (templateId: string) => {
     setSelectedTemplate(templateId);
     setCurrentStep(4);
+  };
+
+  const handleFieldsUpdated = (updatedFields: ResumeFields) => {
+    setExtractedFields(updatedFields);
   };
 
   return (
@@ -133,14 +143,18 @@ const Index = () => {
 
           {currentStep === 4 && extractedFields && (
             <div className="animate-fade-in space-y-8">
-              <FieldEditor 
-                fields={extractedFields} 
-                onFieldsUpdated={setExtractedFields}
-              />
-              <ExportSection 
-                fields={extractedFields} 
+              <TemplateFormRenderer 
                 templateId={selectedTemplate}
+                fields={extractedFields}
+                onFieldsChange={setExtractedFields}
+                extractedConfidence={extractedConfidence}
               />
+              <div className="border-t pt-8">
+                <ExportSection 
+                  fields={extractedFields} 
+                  templateId={selectedTemplate}
+                />
+              </div>
             </div>
           )}
 
