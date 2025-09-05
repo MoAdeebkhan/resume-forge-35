@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Brain, FileText, Sparkles, CheckCircle2, AlertCircle, Key, Zap } from "lucide-react";
+import { Loader2, Brain, FileText, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { FileParser } from "@/utils/fileParser";
 import { ResumeExtractor, type ResumeFields } from "@/utils/resumeExtractor";
@@ -22,48 +22,28 @@ export const ResumeParser = ({ file, onFieldsExtracted, setIsProcessing }: Resum
   const [currentStep, setCurrentStep] = useState("");
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState("");
-  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
-  const [useAI, setUseAI] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const { toast } = useToast();
 
-  const processingSteps = useAI ? [
-    { step: "Reading file content...", duration: 1000 },
-    { step: "Connecting to AI service...", duration: 1500 },
-    { step: "AI analyzing resume structure...", duration: 2000 },
-    { step: "AI extracting personal information...", duration: 2500 },
-    { step: "AI processing work experience...", duration: 2000 },
-    { step: "AI identifying skills and education...", duration: 2000 },
-    { step: "Finalizing AI extraction...", duration: 1000 }
-  ] : [
-    { step: "Reading file content...", duration: 1500 },
-    { step: "Analyzing document structure...", duration: 2000 },
-    { step: "Extracting personal information...", duration: 2500 },
-    { step: "Processing work experience...", duration: 3000 },
-    { step: "Identifying skills and education...", duration: 2500 },
-    { step: "Finalizing extraction...", duration: 1500 }
+  const processingSteps = [
+    { step: "Reading file content...", duration: 800 },
+    { step: "Analyzing document structure...", duration: 1200 },
+    { step: "Extracting personal information...", duration: 1500 },
+    { step: "Processing work experience...", duration: 2000 },
+    { step: "Identifying skills and education...", duration: 1800 },
+    { step: "Finalizing extraction...", duration: 700 }
   ];
 
   const extractResumeFields = async (content: string): Promise<ResumeFields> => {
     console.log("Extracting fields from content:", content.substring(0, 200) + "...");
-    console.log("Using AI extraction:", useAI, "API Key provided:", !!apiKey);
     
     try {
-      let extractedFields: ResumeFields;
-      
-      if (useAI && apiKey.trim()) {
-        // Use AI-powered extraction
-        extractedFields = await AIResumeExtractor.extractWithAI(content, apiKey.trim());
-        console.log("AI extracted fields:", extractedFields);
-      } else {
-        // Use improved fallback extraction
-        extractedFields = AIResumeExtractor.extractFallback(content);
-        console.log("Fallback extracted fields:", extractedFields);
-      }
+      // Use enhanced pattern-based extraction
+      const extractedFields = AIResumeExtractor.extractFallback(content);
+      console.log("Extracted fields:", extractedFields);
       
       // Simulate processing delay for UX
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       return extractedFields;
     } catch (error) {
@@ -73,10 +53,6 @@ export const ResumeParser = ({ file, onFieldsExtracted, setIsProcessing }: Resum
   };
 
   const handleStartProcessing = () => {
-    if (useAI && !apiKey.trim()) {
-      setShowApiKeyInput(true);
-      return;
-    }
     processResume();
   };
 
@@ -108,18 +84,18 @@ export const ResumeParser = ({ file, onFieldsExtracted, setIsProcessing }: Resum
       // Extract fields
       const extractedFields = await extractResumeFields(fileContent);
       
-      // Generate confidence scores based on field completeness and AI usage
+      // Generate confidence scores based on field completeness and content quality
       const confidenceScores: Record<string, number> = {
-        name: extractedFields.name ? (useAI ? 0.95 : 0.85) : 0,
-        email: extractedFields.email ? (useAI ? 0.98 : 0.9) : 0,
-        phone: extractedFields.phone ? (useAI ? 0.9 : 0.8) : 0,
-        location: extractedFields.location ? (useAI ? 0.85 : 0.75) : 0,
-        summary: extractedFields.summary ? (useAI ? 0.9 : 0.7) : 0,
-        experience: extractedFields.experience ? (useAI ? 0.95 : 0.8) : 0,
-        education: extractedFields.education ? (useAI ? 0.9 : 0.8) : 0,
-        skills: extractedFields.skills ? (useAI ? 0.95 : 0.85) : 0,
-        projects: extractedFields.projects ? (useAI ? 0.85 : 0.7) : 0,
-        achievements: extractedFields.achievements ? (useAI ? 0.8 : 0.6) : 0
+        name: extractedFields.name ? (extractedFields.name.length > 5 ? 0.9 : 0.7) : 0,
+        email: extractedFields.email ? (extractedFields.email.includes('@') ? 0.95 : 0.6) : 0,
+        phone: extractedFields.phone ? (extractedFields.phone.length > 8 ? 0.85 : 0.6) : 0,
+        location: extractedFields.location ? (extractedFields.location.includes(',') ? 0.8 : 0.6) : 0,
+        summary: extractedFields.summary ? (extractedFields.summary.length > 50 ? 0.8 : 0.5) : 0,
+        experience: extractedFields.experience ? (extractedFields.experience.length > 100 ? 0.85 : 0.6) : 0,
+        education: extractedFields.education ? (extractedFields.education.length > 50 ? 0.8 : 0.6) : 0,
+        skills: extractedFields.skills ? (extractedFields.skills.split(',').length > 2 ? 0.9 : 0.7) : 0,
+        projects: extractedFields.projects ? (extractedFields.projects.length > 80 ? 0.75 : 0.5) : 0,
+        achievements: extractedFields.achievements ? (extractedFields.achievements.length > 50 ? 0.7 : 0.4) : 0
       };
       
       setIsComplete(true);
@@ -173,141 +149,40 @@ export const ResumeParser = ({ file, onFieldsExtracted, setIsProcessing }: Resum
           )}
         </div>
         <CardTitle className="text-2xl font-bold">
-          {isComplete ? "Processing Complete!" : hasStarted ? "AI Processing Your Resume" : "Choose Processing Method"}
+          {isComplete ? "Processing Complete!" : hasStarted ? "Processing Your Resume" : "Resume Parser"}
         </CardTitle>
         <p className="text-muted-foreground">
           {isComplete 
             ? "Your resume has been successfully analyzed and structured" 
             : hasStarted 
             ? "Our system is analyzing your resume and extracting key information"
-            : "Select how you'd like to extract information from your resume"
+            : "Click below to start extracting information from your resume"
           }
         </p>
       </CardHeader>
       
       <CardContent className="space-y-6">
-        {/* Method Selection */}
+        {/* Start Processing Button */}
         {!hasStarted && !isComplete && (
-          <div className="space-y-6">
-            {!showApiKeyInput ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* AI-Powered Option */}
-                  <Card 
-                    className={`cursor-pointer transition-all duration-300 hover:scale-105 ${
-                      useAI ? 'ring-2 ring-primary' : ''
-                    }`}
-                    onClick={() => setUseAI(true)}
-                  >
-                    <CardContent className="p-6 text-center space-y-4">
-                      <div className="flex justify-center">
-                        <div className="p-3 rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white">
-                          <Zap className="h-6 w-6" />
-                        </div>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold">AI-Powered Extraction</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Most accurate results using advanced AI
-                        </p>
-                      </div>
-                      <Badge variant="secondary" className="bg-purple-100 text-purple-700">
-                        Recommended
-                      </Badge>
-                    </CardContent>
-                  </Card>
-
-                  {/* Basic Option */}
-                  <Card 
-                    className={`cursor-pointer transition-all duration-300 hover:scale-105 ${
-                      !useAI ? 'ring-2 ring-primary' : ''
-                    }`}
-                    onClick={() => setUseAI(false)}
-                  >
-                    <CardContent className="p-6 text-center space-y-4">
-                      <div className="flex justify-center">
-                        <div className="p-3 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-                          <FileText className="h-6 w-6" />
-                        </div>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold">Basic Extraction</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Quick extraction using pattern matching
-                        </p>
-                      </div>
-                      <Badge variant="outline">
-                        Free
-                      </Badge>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div className="text-center">
-                  <Button 
-                    onClick={() => {
-                      if (useAI) {
-                        setShowApiKeyInput(true);
-                      } else {
-                        handleStartProcessing();
-                      }
-                    }}
-                    className="w-full md:w-auto"
-                  >
-                    {useAI ? 'Configure AI Settings' : 'Start Processing'}
-                  </Button>
+          <div className="text-center space-y-4">
+            <div className="p-6">
+              <div className="flex justify-center mb-4">
+                <div className="p-4 rounded-lg bg-gradient-to-r from-primary to-primary-glow text-white">
+                  <FileText className="h-8 w-8" />
                 </div>
               </div>
-            ) : (
-              /* API Key Input */
-              <div className="space-y-4">
-                <div className="text-center">
-                  <Key className="h-12 w-12 text-primary mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Enter Perplexity API Key</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    To use AI-powered extraction, please enter your Perplexity API key.
-                    <br />
-                    <a href="https://www.perplexity.ai/settings/api" target="_blank" className="text-primary hover:underline">
-                      Get your API key here
-                    </a>
-                  </p>
-                </div>
-                
-                <div className="max-w-md mx-auto space-y-4">
-                  <div>
-                    <Label htmlFor="apiKey">Perplexity API Key</Label>
-                    <Input
-                      id="apiKey"
-                      type="password"
-                      placeholder="pplx-..."
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-                  
-                  <div className="flex space-x-2">
-                    <Button 
-                      onClick={handleStartProcessing}
-                      disabled={!apiKey.trim()}
-                      className="flex-1"
-                    >
-                      Start AI Processing
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => {
-                        setUseAI(false);
-                        setShowApiKeyInput(false);
-                        handleStartProcessing();
-                      }}
-                    >
-                      Use Basic Instead
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
+              <h4 className="font-semibold text-lg mb-2">Smart Pattern Extraction</h4>
+              <p className="text-muted-foreground mb-6">
+                Advanced pattern matching technology to accurately extract your resume information - completely free!
+              </p>
+              <Button 
+                onClick={handleStartProcessing}
+                size="lg"
+                className="w-full md:w-auto px-8"
+              >
+                Start Processing Resume
+              </Button>
+            </div>
           </div>
         )}
 
@@ -319,7 +194,7 @@ export const ResumeParser = ({ file, onFieldsExtracted, setIsProcessing }: Resum
               <div>
                 <p className="font-medium">{file.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB • {useAI ? 'AI Processing' : 'Basic Processing'}
+                  {(file.size / 1024 / 1024).toFixed(2)} MB • Smart Pattern Processing
                 </p>
               </div>
             </div>

@@ -3,67 +3,8 @@ import { type ResumeFields } from './resumeExtractor';
 export class AIResumeExtractor {
   
   static async extractWithAI(content: string, apiKey: string): Promise<ResumeFields> {
-    if (!apiKey || !apiKey.trim()) {
-      throw new Error('API key is required for AI extraction');
-    }
-
-    try {
-      const response = await fetch('https://api.perplexity.ai/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'llama-3.1-sonar-small-128k-online',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a professional resume parser. Extract information from resume text and return ONLY a valid JSON object with these exact fields: name, email, phone, location, website, linkedin, summary, experience, education, skills, projects, certifications, languages, achievements. If a field is not found, return empty string "". Do not include any other text or explanations, only the JSON object.`
-            },
-            {
-              role: 'user',
-              content: `Extract resume information from this text:\n\n${content}`
-            }
-          ],
-          temperature: 0.1,
-          top_p: 0.9,
-          max_tokens: 2000,
-          return_images: false,
-          return_related_questions: false,
-          frequency_penalty: 1,
-          presence_penalty: 0
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        throw new Error('Invalid API response format');
-      }
-
-      const extractedText = data.choices[0].message.content.trim();
-      
-      // Parse JSON response
-      let extractedData;
-      try {
-        extractedData = JSON.parse(extractedText);
-      } catch (parseError) {
-        console.error('Failed to parse AI response as JSON:', extractedText);
-        throw new Error('AI response was not valid JSON. Using fallback extraction.');
-      }
-
-      return this.validateExtractedFields(extractedData);
-
-    } catch (error) {
-      console.error('AI extraction failed:', error);
-      // Fallback to pattern-based extraction
-      return this.extractFallback(content);
-    }
+    // AI extraction is removed - fallback to pattern-based extraction
+    return this.extractFallback(content);
   }
 
   private static validateExtractedFields(data: any): ResumeFields {
@@ -96,9 +37,10 @@ export class AIResumeExtractor {
     return result;
   }
 
-  // Fallback extraction using improved pattern matching
+  // Enhanced pattern-based extraction - completely free and accurate
   static extractFallback(content: string): ResumeFields {
     const lines = content.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const cleanContent = content.toLowerCase();
     
     return {
       name: this.extractNameFallback(lines),
@@ -107,29 +49,43 @@ export class AIResumeExtractor {
       location: this.extractLocationFallback(content),
       website: this.extractWebsiteFallback(content),
       linkedin: this.extractLinkedInFallback(content),
-      summary: this.extractSectionFallback(content, ['summary', 'profile', 'objective']),
-      experience: this.extractSectionFallback(content, ['experience', 'work', 'employment']),
-      education: this.extractSectionFallback(content, ['education', 'qualification']),
-      skills: this.extractSectionFallback(content, ['skills', 'technical', 'expertise']),
-      projects: this.extractSectionFallback(content, ['projects', 'portfolio']),
-      certifications: this.extractSectionFallback(content, ['certification', 'certificate', 'award']),
-      languages: this.extractSectionFallback(content, ['language']),
-      achievements: this.extractSectionFallback(content, ['achievement', 'accomplishment', 'award', 'honor'])
+      summary: this.extractSectionFallback(content, ['summary', 'profile', 'objective', 'about']),
+      experience: this.extractSectionFallback(content, ['experience', 'work', 'employment', 'career', 'professional']),
+      education: this.extractSectionFallback(content, ['education', 'qualification', 'academic', 'degree']),
+      skills: this.extractSkillsFallback(content),
+      projects: this.extractSectionFallback(content, ['projects', 'portfolio', 'work samples']),
+      certifications: this.extractSectionFallback(content, ['certification', 'certificate', 'licenses']),
+      languages: this.extractSectionFallback(content, ['language', 'linguistic']),
+      achievements: this.extractSectionFallback(content, ['achievement', 'accomplishment', 'award', 'honor', 'recognition'])
     };
   }
 
   private static extractNameFallback(lines: string[]): string {
-    // First few lines are most likely to contain the name
-    for (let i = 0; i < Math.min(5, lines.length); i++) {
+    // Enhanced name extraction with multiple patterns
+    for (let i = 0; i < Math.min(8, lines.length); i++) {
       const line = lines[i];
-      // Skip lines that look like headers, contact info, etc.
-      if (line.length > 50 || line.includes('@') || line.includes('resume') || 
-          line.includes('curriculum') || line.includes('cv')) {
+      // Skip unwanted patterns
+      if (line.length > 60 || line.includes('@') || line.includes('www.') || 
+          line.toLowerCase().includes('resume') || line.toLowerCase().includes('curriculum') || 
+          line.toLowerCase().includes('cv') || line.includes('http') || 
+          /^\d/.test(line) || line.includes('|')) {
         continue;
       }
-      // Look for name patterns
-      if (/^[A-Z][a-z]+ [A-Z][a-z]+/.test(line) && line.split(' ').length <= 4) {
-        return line;
+      
+      // Look for name patterns - enhanced patterns
+      const namePatterns = [
+        /^([A-Z][a-z]+ [A-Z][a-z]+)$/, // First Last
+        /^([A-Z][a-z]+ [A-Z]\. [A-Z][a-z]+)$/, // First M. Last
+        /^([A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+)$/, // First Middle Last
+        /^([A-Z][A-Z]+ [A-Z][A-Z]+)$/, // ALL CAPS names
+        /^([A-Z][a-z]+(?:\s[A-Z][a-z]+){1,2})(?:\s*,.*)?$/ // Name with possible title after comma
+      ];
+      
+      for (const pattern of namePatterns) {
+        const match = line.match(pattern);
+        if (match && match[1] && match[1].split(' ').length <= 4) {
+          return match[1].trim();
+        }
       }
     }
     return "";
@@ -142,39 +98,109 @@ export class AIResumeExtractor {
 
   private static extractPhoneFallback(content: string): string {
     const phonePatterns = [
-      /(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/,
-      /(\+?[1-9]\d{0,3}[-.\s]?)?\(?(\d{3,4})\)?[-.\s]?(\d{3,4})[-.\s]?(\d{3,4})/
+      /(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/g, // US format
+      /(\+?[1-9]\d{0,3}[-.\s]?)?\(?(\d{3,4})\)?[-.\s]?(\d{3,4})[-.\s]?(\d{3,4})/g, // International
+      /(?:phone|tel|mobile|cell)[:.\s]*(\+?[\d\s\-\(\)\.]{10,})/gi, // Labeled phone
+      /(\+\d{1,3}[\s\-]?\d{3,4}[\s\-]?\d{3,4}[\s\-]?\d{3,4})/g // International with +
     ];
     
     for (const pattern of phonePatterns) {
-      const match = content.match(pattern);
-      if (match) return match[0];
+      const matches = content.match(pattern);
+      if (matches) {
+        // Return the most likely phone number (longest one)
+        const sorted = matches.sort((a, b) => b.length - a.length);
+        const phone = sorted[0].replace(/(?:phone|tel|mobile|cell)[:.\s]*/gi, '').trim();
+        if (phone.length >= 10) return phone;
+      }
     }
     return "";
   }
 
   private static extractLocationFallback(content: string): string {
     const locationPatterns = [
-      /([A-Z][a-z]+,\s*[A-Z]{2})/,
-      /([A-Z][a-z]+\s*[A-Z][a-z]*,\s*[A-Z][a-z]+)/,
-      /([A-Z][a-z]+,\s*[A-Z][a-z]+,\s*[A-Z]{2,})/
+      /([A-Z][a-z]+,\s*[A-Z]{2}(?:\s+\d{5})?)/g, // City, ST or City, ST 12345
+      /([A-Z][a-z]+\s*[A-Z][a-z]*,\s*[A-Z][a-z]+)/g, // City Name, Country
+      /([A-Z][a-z]+,\s*[A-Z][a-z]+,\s*[A-Z]{2,})/g, // City, State, Country
+      /(?:location|address|based in|lives in)[:.\s]*([A-Z][a-z\s,]+(?:[A-Z]{2,}|\d{5}))/gi, // Labeled location
+      /([A-Z][a-z]+(?:\s[A-Z][a-z]+)?,\s*[A-Z]{2,})/g // Enhanced city, country/state
     ];
     
     for (const pattern of locationPatterns) {
-      const match = content.match(pattern);
-      if (match) return match[1];
+      const matches = content.match(pattern);
+      if (matches) {
+        for (const match of matches) {
+          const location = match.replace(/(?:location|address|based in|lives in)[:.\s]*/gi, '').trim();
+          if (location.length > 3 && location.includes(',')) {
+            return location;
+          }
+        }
+      }
     }
     return "";
   }
 
   private static extractWebsiteFallback(content: string): string {
-    const websiteMatch = content.match(/(https?:\/\/[^\s]+|www\.[^\s]+)/);
-    return websiteMatch ? websiteMatch[0] : "";
+    const websitePatterns = [
+      /(https?:\/\/[^\s]+)/g,
+      /(www\.[^\s]+)/g,
+      /(?:website|portfolio|site)[:.\s]*((?:https?:\/\/)?[^\s]+\.[a-z]{2,})/gi
+    ];
+    
+    for (const pattern of websitePatterns) {
+      const matches = content.match(pattern);
+      if (matches) {
+        for (const match of matches) {
+          const url = match.replace(/(?:website|portfolio|site)[:.\s]*/gi, '').trim();
+          if (url.includes('.') && !url.includes('@') && !url.includes('linkedin')) {
+            return url.startsWith('http') ? url : `https://${url}`;
+          }
+        }
+      }
+    }
+    return "";
   }
 
   private static extractLinkedInFallback(content: string): string {
-    const linkedinMatch = content.match(/(https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]+/);
-    return linkedinMatch ? linkedinMatch[0] : "";
+    const linkedinPatterns = [
+      /(https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]+/g,
+      /(?:linkedin|linked in)[:.\s]*((?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]+)/gi
+    ];
+    
+    for (const pattern of linkedinPatterns) {
+      const matches = content.match(pattern);
+      if (matches) {
+        const linkedin = matches[0].replace(/(?:linkedin|linked in)[:.\s]*/gi, '').trim();
+        return linkedin.startsWith('http') ? linkedin : `https://${linkedin}`;
+      }
+    }
+    return "";
+  }
+
+  // Enhanced skills extraction
+  private static extractSkillsFallback(content: string): string {
+    // First try to find a dedicated skills section
+    const skillsSection = this.extractSectionFallback(content, ['skills', 'technical skills', 'core competencies', 'expertise', 'technologies']);
+    if (skillsSection) return skillsSection;
+    
+    // Look for common programming languages and technologies
+    const commonSkills = [
+      'JavaScript', 'Python', 'Java', 'C++', 'C#', 'PHP', 'Ruby', 'Go', 'Rust', 'Swift',
+      'React', 'Angular', 'Vue', 'Node.js', 'Express', 'Django', 'Flask', 'Spring',
+      'HTML', 'CSS', 'SQL', 'MongoDB', 'PostgreSQL', 'MySQL', 'Redis',
+      'AWS', 'Azure', 'Docker', 'Kubernetes', 'Git', 'Linux', 'Apache', 'Nginx',
+      'Machine Learning', 'AI', 'Data Science', 'Analytics', 'Tableau', 'Power BI'
+    ];
+    
+    const foundSkills: string[] = [];
+    const lowerContent = content.toLowerCase();
+    
+    for (const skill of commonSkills) {
+      if (lowerContent.includes(skill.toLowerCase())) {
+        foundSkills.push(skill);
+      }
+    }
+    
+    return foundSkills.length > 0 ? foundSkills.join(', ') : "";
   }
 
   private static extractSectionFallback(content: string, keywords: string[]): string {
@@ -193,7 +219,7 @@ export class AIResumeExtractor {
             
             // Stop if we hit another section header
             if (nextLine && /^[A-Z][A-Za-z\s]+:?\s*$/.test(nextLine) && 
-                nextLine.length < 30 && !nextLine.includes('.')) {
+                nextLine.length < 50 && !nextLine.includes('.') && !nextLine.includes(',')) {
               break;
             }
             
