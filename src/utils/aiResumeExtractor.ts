@@ -63,29 +63,45 @@ export class AIResumeExtractor {
   private static extractNameFallback(lines: string[]): string {
     // Enhanced name extraction with multiple patterns
     for (let i = 0; i < Math.min(8, lines.length); i++) {
-      const line = lines[i];
+      const line = lines[i].trim();
+      
       // Skip unwanted patterns
       if (line.length > 60 || line.includes('@') || line.includes('www.') || 
           line.toLowerCase().includes('resume') || line.toLowerCase().includes('curriculum') || 
           line.toLowerCase().includes('cv') || line.includes('http') || 
-          /^\d/.test(line) || line.includes('|')) {
+          /^\d/.test(line) || line.includes('|') || line.length < 2) {
         continue;
       }
       
-      // Look for name patterns - enhanced patterns
+      // Look for name patterns - enhanced and more flexible patterns
       const namePatterns = [
-        /^([A-Z][a-z]+ [A-Z][a-z]+)$/, // First Last
+        /^([A-Z][a-z]+ [A-Z][a-z]*[A-Z]*)$/, // First Last (flexible last name)
         /^([A-Z][a-z]+ [A-Z]\. [A-Z][a-z]+)$/, // First M. Last
         /^([A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+)$/, // First Middle Last
-        /^([A-Z][A-Z]+ [A-Z][A-Z]+)$/, // ALL CAPS names
-        /^([A-Z][a-z]+(?:\s[A-Z][a-z]+){1,2})(?:\s*,.*)?$/ // Name with possible title after comma
+        /^([A-Z]+ [A-Z]+)$/, // ALL CAPS names (flexible - any length)
+        /^([A-Z][a-z]+(?:\s[A-Z][a-z]*){1,3})(?:\s*,.*)?$/, // Name with possible title after comma
+        /^([A-Z][A-Z]+ [A-Z])$/, // Handle cases like "PRADEEP A"
+        /^([A-Z][a-zA-Z]+ [A-Z][a-zA-Z]*)$/ // Mixed case flexible
       ];
       
       for (const pattern of namePatterns) {
         const match = line.match(pattern);
-        if (match && match[1] && match[1].split(' ').length <= 4) {
-          return match[1].trim();
+        if (match && match[1]) {
+          const name = match[1].trim();
+          const words = name.split(/\s+/);
+          // Ensure we have 2-4 words and reasonable length
+          if (words.length >= 2 && words.length <= 4 && name.length > 3 && name.length < 50) {
+            return name;
+          }
         }
+      }
+      
+      // If no pattern matches but the line looks like a name (2-3 words, reasonable length)
+      const words = line.split(/\s+/).filter(w => w.length > 0);
+      if (words.length >= 2 && words.length <= 4 && line.length > 3 && line.length < 50 &&
+          words.every(word => /^[A-Za-z]+$/.test(word)) && 
+          words.some(word => word[0] === word[0].toUpperCase())) {
+        return line;
       }
     }
     return "";
